@@ -1,80 +1,344 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy"
-content="
-default-src 'self';
-script-src 'self' https://cdnjs.cloudflare.com;
-worker-src 'self' blob:;
-img-src 'self' data: blob:;
-style-src 'self' 'unsafe-inline';
-">
-  <title>PDF Tool Pro</title>
-
+  content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline';">
+<title>ShiPra SmartPDF Tool</title>
 <style>
+  :root {
+    --bg: #f0f2ff;
+    --header-from: #6c63ff;
+    --header-to: #3b2fcf;
+    --card-bg: #ffffff;
+    --card-shadow: 0 4px 24px rgba(108,99,255,0.12);
+    --radius: 14px;
+    --tab-merge: #6c63ff;
+    --tab-compress: #0ea5e9;
+    --tab-organise: #f59e0b;
+    --tab-scan: #10b981;
+    --text: #1e1b4b;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
-    font-family: Arial;
-    padding: 20px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
   }
 
-  h2 {
-    margin-top: 30px;
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--header-from), var(--header-to));
+    color: #fff;
+    padding: 22px 32px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 4px 20px rgba(108,99,255,0.35);
   }
+  header .logo { font-size: 2rem; line-height: 1; }
+  header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+  header p  { font-size: 0.85rem; opacity: 0.82; margin-top: 2px; }
 
-  button {
-    margin: 5px;
-    padding: 8px 12px;
+  /* ── Tab Bar ── */
+  nav.tabs {
+    display: flex;
+    gap: 6px;
+    padding: 14px 24px 0;
+    background: #fff;
+    border-bottom: 2px solid var(--border);
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  nav.tabs button {
+    flex: 0 0 auto;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 10px 10px 0 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.95rem;
+    font-weight: 600;
     cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  nav.tabs button:hover { background: var(--bg); }
+  nav.tabs button.active[data-tab="merge"]    { background: var(--tab-merge);    color: #fff; }
+  nav.tabs button.active[data-tab="compress"] { background: var(--tab-compress); color: #fff; }
+  nav.tabs button.active[data-tab="organise"] { background: var(--tab-organise); color: #fff; }
+  nav.tabs button.active[data-tab="scan"]     { background: var(--tab-scan);     color: #fff; }
+
+  /* ── Tab Panels ── */
+  .panel { display: none; padding: 28px 24px; max-width: 960px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 28px 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .accent { width: 4px; height: 22px; border-radius: 3px; display: inline-block; }
+  #panel-merge    h2 .accent { background: var(--tab-merge); }
+  #panel-compress h2 .accent { background: var(--tab-compress); }
+  #panel-organise h2 .accent { background: var(--tab-organise); }
+  #panel-scan     h2 .accent { background: var(--tab-scan); }
+
+  /* ── Drop Zone ── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--tab-merge); background: #f4f3ff; }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-zone .dz-icon { font-size: 2.2rem; display: block; margin-bottom: 8px; }
+  .drop-zone strong { color: var(--text); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.1s;
+  }
+  .btn:hover  { filter: brightness(1.08); }
+  .btn:active { transform: scale(0.97); }
+  .btn-merge    { background: var(--tab-merge);    color: #fff; }
+  .btn-compress { background: var(--tab-compress); color: #fff; }
+  .btn-organise { background: var(--tab-organise); color: #fff; }
+  .btn-scan     { background: var(--tab-scan);     color: #fff; }
+  .btn-outline  { background: transparent; border: 2px solid var(--border); color: var(--text); }
+  .btn-danger   { background: #ef4444; color: #fff; padding: 5px 10px; font-size: 0.8rem; }
+  .btn-sm { padding: 5px 12px; font-size: 0.82rem; }
+
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+  /* ── File List (Merge) ── */
+  #fileList {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 14px 0;
+  }
+  #fileList li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8f7ff;
+    border: 1px solid #e0ddff;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    gap: 10px;
+  }
+  #fileList li .file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #fileList li .file-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+  /* ── Compress Level Chips ── */
+  .compress-levels { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .compress-levels .level-card {
+    flex: 1 1 120px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.1s;
+  }
+  .compress-levels .level-card:hover { border-color: var(--tab-compress); background: #f0faff; transform: translateY(-2px); }
+  .compress-levels .level-card .lc-icon { font-size: 1.6rem; display: block; margin-bottom: 4px; }
+  .compress-levels .level-card .lc-label { font-weight: 700; font-size: 0.95rem; }
+  .compress-levels .level-card .lc-desc { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+  /* ── Page Grid (Organise) ── */
+  #pageList {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 16px 0;
+    padding: 4px;
+    min-height: 60px;
+  }
+  #pageList li {
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 130px;
+    cursor: grab;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+    user-select: none;
+  }
+  #pageList li:hover { border-color: var(--tab-organise); box-shadow: 0 4px 14px rgba(245,158,11,0.18); }
+  #pageList li.sortable-ghost { opacity: 0.4; transform: scale(0.96); }
+  #pageList li.sortable-chosen { border-color: var(--tab-organise); box-shadow: 0 8px 24px rgba(245,158,11,0.3); }
+  #pageList li img { width: 110px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  #pageList li .page-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; text-align: center; }
+  #pageList li .page-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+  #pageList li .page-actions .btn { padding: 3px 8px; font-size: 0.75rem; }
+
+  .drag-hint {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
-  ul {
-    margin-top: 10px;
-  }
-
-  li {
-    margin-bottom: 5px;
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    header { padding: 16px 16px 12px; }
+    .panel { padding: 18px 12px; }
+    .card  { padding: 18px 14px; }
+    #pageList li { width: 110px; }
+    #pageList li img { width: 90px; }
   }
 </style>
-
 </head>
 <body>
 
-<h1>ShiPra SmartPDF Tool 🚀</h1>
+<header>
+  <span class="logo">📄</span>
+  <div>
+    <h1>ShiPra SmartPDF Tool</h1>
+    <p>Merge · Compress · Organise · Scan</p>
+  </div>
+</header>
 
-<h2>Merge PDFs</h2>
+<nav class="tabs">
+  <button class="active" data-tab="merge">🔗 Merge PDFs</button>
+  <button data-tab="compress">🗜️ Compress</button>
+  <button data-tab="organise">📐 Organise</button>
+  <button data-tab="scan">🖨️ Scan</button>
+</nav>
 
-<input type="file" id="pdfs" multiple>
-<button id="mergeBtn">Merge PDFs</button>
-<button id="addBtn">Add Files</button>
-<ul id="fileList"></ul>
+<!-- ── MERGE PANEL ── -->
+<div id="panel-merge" class="panel active">
+  <div class="card">
+    <h2><span class="accent"></span>Merge PDFs</h2>
+    <div class="drop-zone" id="mergeDropZone">
+      <span class="dz-icon">📂</span>
+      <span><strong>Click to browse</strong> or drag &amp; drop PDF files here</span>
+      <input type="file" id="pdfs" multiple accept="application/pdf">
+    </div>
+    <div class="btn-group">
+      <button id="addBtn" class="btn btn-outline">➕ Add Files</button>
+      <button id="mergeBtn" class="btn btn-merge">🔗 Merge PDFs</button>
+    </div>
+    <ul id="fileList"></ul>
+  </div>
+</div>
 
-<h2>Compress PDF</h2>
+<!-- ── COMPRESS PANEL ── -->
+<div id="panel-compress" class="panel">
+  <div class="card">
+    <h2><span class="accent"></span>Compress PDF</h2>
+    <div class="drop-zone" style="border-color: #bae6fd;">
+      <span class="dz-icon">📄</span>
+      <span><strong>Click to browse</strong> or drag &amp; drop a PDF file here</span>
+      <input type="file" id="compressPdf" accept="application/pdf">
+    </div>
+    <p style="color: var(--muted); font-size:0.88rem; margin-bottom:12px;">Choose compression level:</p>
+    <div class="compress-levels">
+      <div class="level-card" id="fastBtn">
+        <span class="lc-icon">⚡</span>
+        <span class="lc-label">Fast</span>
+        <span class="lc-desc">Small reduction, high quality</span>
+      </div>
+      <div class="level-card" id="mediumBtn">
+        <span class="lc-icon">⚖️</span>
+        <span class="lc-label">Medium</span>
+        <span class="lc-desc">Balanced size &amp; quality</span>
+      </div>
+      <div class="level-card" id="ultraBtn">
+        <span class="lc-icon">🗜️</span>
+        <span class="lc-label">Ultra</span>
+        <span class="lc-desc">Maximum compression</span>
+      </div>
+    </div>
+  </div>
+</div>
 
-<input type="file" id="compressPdf">
+<!-- ── ORGANISE PANEL ── -->
+<div id="panel-organise" class="panel">
+  <div class="card">
+    <h2><span class="accent"></span>Organise PDF Pages</h2>
+    <div class="drop-zone" style="border-color: #fde68a;">
+      <span class="dz-icon">📄</span>
+      <span><strong>Click to browse</strong> or drag &amp; drop a PDF file here</span>
+      <input type="file" id="orgPdf" accept="application/pdf">
+    </div>
+    <div class="btn-group" style="margin-bottom:14px;">
+      <button id="loadOrgBtn" class="btn btn-organise">📂 Load PDF</button>
+      <button id="downloadOrgBtn" class="btn btn-outline">💾 Download Organised PDF</button>
+    </div>
+    <p class="drag-hint">🖱️ Drag &amp; drop thumbnails below to reorder pages. Use 🔄 to rotate, ❌ to delete.</p>
+    <ul id="pageList"></ul>
+  </div>
+</div>
 
-<button id="fastBtn">Fast</button>
-<button id="mediumBtn">Medium</button>
-<button id="ultraBtn">Ultra</button>
-
-
-<h2>Organise PDF</h2>
-
-<input type="file" id="orgPdf" accept="application/pdf">
-<button id="loadOrgBtn">Load PDF</button>
-
-<ul id="pageList"></ul>
-
-<button id="downloadOrgBtn">Download Organised PDF</button>
+<!-- ── SCAN PANEL ── -->
+<div id="panel-scan" class="panel">
+  <div class="card">
+    <h2><span class="accent"></span>Scan PDF</h2>
+    <p style="color: var(--muted); font-size:0.9rem; margin-bottom:14px;">Convert a digital PDF to look like a scanned document.</p>
+    <div class="drop-zone" style="border-color: #a7f3d0;">
+      <span class="dz-icon">🖨️</span>
+      <span><strong>Click to browse</strong> or drag &amp; drop a PDF file here</span>
+      <input type="file" id="scanPdfInput" accept="application/pdf">
+    </div>
+    <div class="btn-group">
+      <button id="scanBtn" class="btn btn-scan">🖨️ Convert to Scanned PDF</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-<h2>Convert PDF as a scanned Pdf</h2>
-<h2>Scan PDF</h2>
-
-<input type="file" id="scanPdfInput" accept="application/pdf">
-<button id="scanBtn">Convert to Scanned PDF</button>
-
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.3/Sortable.min.js"></script>
 <script src="renderer.js"></script>
 </body>
 </html>

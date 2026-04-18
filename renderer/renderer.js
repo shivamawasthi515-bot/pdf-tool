@@ -12,6 +12,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 let selectedFiles = [];
 let orgBuffer = null;
 let pageOrder = [];
+let orgSortable = null;
 
 // ADD FILES
 function addFiles() {
@@ -31,14 +32,22 @@ function renderFileList() {
 
   selectedFiles.forEach((file, index) => {
     const li = document.createElement("li");
-    const fileLabel = document.createElement("span");
-    fileLabel.textContent = `📄 ${file.name} `;
+
+    const icon = document.createElement("span");
+    icon.className = "file-icon";
+    icon.textContent = "📄";
+
+    const name = document.createElement("span");
+    name.className = "file-name";
+    name.textContent = file.name;
 
     const removeButton = document.createElement("button");
     removeButton.textContent = "❌ Remove";
+    removeButton.className = "btn btn-danger";
     removeButton.addEventListener("click", () => removeFile(index));
 
-    li.appendChild(fileLabel);
+    li.appendChild(icon);
+    li.appendChild(name);
     li.appendChild(removeButton);
 
     list.appendChild(li);
@@ -132,6 +141,12 @@ async function renderPages() {
   const list = document.getElementById("pageList");
   list.innerHTML = "";
 
+  // Destroy existing Sortable instance before re-rendering
+  if (orgSortable) {
+    orgSortable.destroy();
+    orgSortable = null;
+  }
+
   for (let i = 0; i < pageOrder.length; i++) {
 
     const pageObj = pageOrder[i];
@@ -156,45 +171,52 @@ async function renderPages() {
     }).promise;
 
     const li = document.createElement("li");
+    li.dataset.pageIdx = String(i);
 
     const img = document.createElement("img");
     img.src = canvas.toDataURL();
-    img.style.width = "120px";
 
-    const text = document.createTextNode(
-      `Page ${pageIndex + 1} (${pageObj.rotate}°)`
-    );
+    const label = document.createElement("span");
+    label.className = "page-label";
+    label.textContent = `Page ${pageIndex + 1} · ${pageObj.rotate}°`;
 
-    // 🔥 MOVE BUTTONS
-    const upBtn = document.createElement("button");
-    upBtn.textContent = "⬆";
-    upBtn.onclick = () => moveUp(i);
+    const actions = document.createElement("div");
+    actions.className = "page-actions";
 
-    const downBtn = document.createElement("button");
-    downBtn.textContent = "⬇";
-    downBtn.onclick = () => moveDown(i);
+    const rotateBtn = document.createElement("button");
+    rotateBtn.className = "btn btn-outline btn-sm";
+    rotateBtn.textContent = "🔄";
+    rotateBtn.title = "Rotate 90°";
+    rotateBtn.addEventListener("click", () => rotatePage(i));
 
     const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-danger btn-sm";
     delBtn.textContent = "❌";
-    delBtn.onclick = () => removePage(i);
+    delBtn.title = "Delete page";
+    delBtn.addEventListener("click", () => removePage(i));
 
-    // 🔥 ROTATE BUTTON (MISSING FIX)
-    const rotateBtn = document.createElement("button");
-    rotateBtn.textContent = "🔄";
-    rotateBtn.onclick = () => rotatePage(i);
+    actions.appendChild(rotateBtn);
+    actions.appendChild(delBtn);
 
-    // append everything
     li.appendChild(img);
-    li.appendChild(document.createTextNode(" "));
-    li.appendChild(text);
-    li.appendChild(document.createElement("br"));
-
-    li.appendChild(upBtn);
-    li.appendChild(downBtn);
-    li.appendChild(delBtn);
-    li.appendChild(rotateBtn);
+    li.appendChild(label);
+    li.appendChild(actions);
 
     list.appendChild(li);
+  }
+
+  // Initialise SortableJS drag-drop
+  if (window.Sortable && pageOrder.length > 0) {
+    orgSortable = new Sortable(list, {
+      animation: 200,
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      onEnd(evt) {
+        const moved = pageOrder.splice(evt.oldIndex, 1)[0];
+        pageOrder.splice(evt.newIndex, 0, moved);
+        renderPages();
+      }
+    });
   }
 }
 //Page Control 
@@ -270,6 +292,24 @@ async function scanPDF() {
 
 // 🔥 SAFE EVENT BINDING (NO INLINE JS)
 document.addEventListener("DOMContentLoaded", () => {
+
+  // ── Tab switching ──
+  const tabButtons = document.querySelectorAll("nav.tabs button");
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      tabButtons.forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ── Drop-zone hover highlight ──
+  document.querySelectorAll(".drop-zone").forEach(zone => {
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+    zone.addEventListener("drop", () => zone.classList.remove("drag-over"));
+  });
 
   document.getElementById("addBtn").addEventListener("click", addFiles);
   document.getElementById("mergeBtn").addEventListener("click", mergePDFs);
