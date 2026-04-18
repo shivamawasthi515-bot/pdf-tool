@@ -31,11 +31,15 @@ function renderFileList() {
 
   selectedFiles.forEach((file, index) => {
     const li = document.createElement("li");
+    const fileLabel = document.createElement("span");
+    fileLabel.textContent = `📄 ${file.name} `;
 
-    li.innerHTML = `
-      📄 ${file.name}
-      <button onclick="removeFile(${index})">❌ Remove</button>
-    `;
+    const removeButton = document.createElement("button");
+    removeButton.textContent = "❌ Remove";
+    removeButton.addEventListener("click", () => removeFile(index));
+
+    li.appendChild(fileLabel);
+    li.appendChild(removeButton);
 
     list.appendChild(li);
   });
