@@ -1,0 +1,44 @@
+{
+  "name": "pdf-tool",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdf-poppler": "^0.2.3",
+    "pdfjs-dist": "^3.11.174",
+    "sharp": "^0.34.5"
+  },
+  "build": {
+    "appId": "com.pdf.tool",
+    "productName": "PDF Tool Pro",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "asarUnpack": [
+      "node_modules/pdf-poppler/**"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/pdf-poppler/lib/win",
+        "to": "pdf-poppler"
+      }
+    ]
+  }
+}

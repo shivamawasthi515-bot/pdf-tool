@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Security-Policy"
+content="
+default-src 'self';
+script-src 'self' https://cdnjs.cloudflare.com;
+worker-src 'self' blob:;
+img-src 'self' data: blob:;
+style-src 'self' 'unsafe-inline';
+">
+  <title>PDF Tool Pro</title>
+
+<style>
+  body {
+    font-family: Arial;
+    padding: 20px;
+  }
+
+  h2 {
+    margin-top: 30px;
+  }
+
+  button {
+    margin: 5px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+
+  ul {
+    margin-top: 10px;
+  }
+
+  li {
+    margin-bottom: 5px;
+  }
+</style>
+
+</head>
+<body>
+
+<h1>ShiPra SmartPDF Tool 🚀</h1>
+
+<h2>Merge PDFs</h2>
+
+<input type="file" id="pdfs" multiple>
+<button id="mergeBtn">Merge PDFs</button>
+<button id="addBtn">Add Files</button>
+<ul id="fileList"></ul>
+
+<h2>Compress PDF</h2>
+
+<input type="file" id="compressPdf">
+
+<button id="fastBtn">Fast</button>
+<button id="mediumBtn">Medium</button>
+<button id="ultraBtn">Ultra</button>
+
+
+<h2>Organise PDF</h2>
+
+<input type="file" id="orgPdf" accept="application/pdf">
+<button id="loadOrgBtn">Load PDF</button>
+
+<ul id="pageList"></ul>
+
+<button id="downloadOrgBtn">Download Organised PDF</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<h2>Convert PDF as a scanned Pdf</h2>
+<h2>Scan PDF</h2>
+
+<input type="file" id="scanPdfInput" accept="application/pdf">
+<button id="scanBtn">Convert to Scanned PDF</button>
+
+
+<script src="renderer.js"></script>
+</body>
+</html>
