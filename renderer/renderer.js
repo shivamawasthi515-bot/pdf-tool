@@ -474,7 +474,11 @@ function download(data, name) {
 }
 
 // ─── EVENT BINDING ────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
+// renderer.js is loaded at the bottom of <body>, so the DOM is already parsed
+// when this script executes.  Using a readyState guard means initUI() is called
+// immediately (readyState === 'interactive') rather than relying on a
+// DOMContentLoaded callback that may have already fired in some Electron builds.
+function initUI() {
 
   // Tab switching
   const tabButtons = document.querySelectorAll("nav.tabs button");
@@ -494,29 +498,40 @@ document.addEventListener("DOMContentLoaded", () => {
     zone.addEventListener("drop",      ()  => zone.classList.remove("drag-over"));
   });
 
-  // Merge
-  document.getElementById("addBtn").addEventListener("click", addFiles);
+  // ── Merge ──
+  // "Add Files" opens the file picker; the change event processes the selection
+  const pdfsInput = document.getElementById("pdfs");
+  document.getElementById("addBtn").addEventListener("click", () => pdfsInput.click());
+  pdfsInput.addEventListener("change", addFiles);
   document.getElementById("mergeBtn").addEventListener("click", mergePDFs);
 
-  // Compress
+  // ── Compress ──
   document.getElementById("fastBtn").addEventListener("click",   () => compressPDF(1));
   document.getElementById("mediumBtn").addEventListener("click", () => compressPDF(2));
   document.getElementById("ultraBtn").addEventListener("click",  () => compressPDF(3));
 
-  // Organise – mode buttons
+  // ── Organise ──
+  // "Add PDFs" opens the file picker; the change event processes the selection
+  const orgPdfsInput = document.getElementById("orgPdfs");
+  document.getElementById("addOrgFilesBtn").addEventListener("click", () => orgPdfsInput.click());
+  orgPdfsInput.addEventListener("change", addOrgFiles);
   document.querySelectorAll(".mode-btn").forEach(btn => {
     btn.addEventListener("click", () => setOrgMode(btn.dataset.mode));
   });
-  document.getElementById("addOrgFilesBtn").addEventListener("click",  addOrgFiles);
-  document.getElementById("clearOrgBtn").addEventListener("click",     clearOrgAll);
-  document.getElementById("downloadOrgBtn").addEventListener("click",  downloadOrganisedPDF);
+  document.getElementById("clearOrgBtn").addEventListener("click",    clearOrgAll);
+  document.getElementById("downloadOrgBtn").addEventListener("click", downloadOrganisedPDF);
 
-  // Split
+  // ── Split ──
   document.getElementById("splitPdfInput").addEventListener("change",  onSplitFileChange);
   document.getElementById("splitBtn").addEventListener("click",        doSplitPDF);
   document.getElementById("splitEqualBtn").addEventListener("click",   splitEqualParts);
 
-  // Scan
+  // ── Scan ──
   document.getElementById("scanBtn").addEventListener("click", scanPDF);
+}
 
-});
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initUI);
+} else {
+  initUI();
+}
