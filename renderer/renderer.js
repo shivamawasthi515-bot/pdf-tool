@@ -506,6 +506,25 @@ function initUI() {
   document.getElementById("mergeBtn").addEventListener("click", mergePDFs);
 
   // ── Compress ──
+  // Make the drop-zone clickable so users can browse for a file
+  const compressPdfInput = document.getElementById("compressPdf");
+  const compressDropZone = compressPdfInput.closest(".drop-zone");
+  compressDropZone.style.cursor = "pointer";
+  compressDropZone.addEventListener("click", (e) => {
+    if (e.target !== compressPdfInput) compressPdfInput.click();
+  });
+  // Handle files dropped onto the compress drop-zone
+  compressDropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    compressDropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      compressPdfInput.files = dt.files;
+    }
+  });
+
   document.getElementById("fastBtn").addEventListener("click",   () => compressPDF(1));
   document.getElementById("mediumBtn").addEventListener("click", () => compressPDF(2));
   document.getElementById("ultraBtn").addEventListener("click",  () => compressPDF(3));
@@ -527,6 +546,25 @@ function initUI() {
   document.getElementById("splitEqualBtn").addEventListener("click",   splitEqualParts);
 
   // ── Scan ──
+  // Make the drop-zone clickable so users can browse for a file
+  const scanPdfInput = document.getElementById("scanPdfInput");
+  const scanDropZone = scanPdfInput.closest(".drop-zone");
+  scanDropZone.style.cursor = "pointer";
+  scanDropZone.addEventListener("click", (e) => {
+    if (e.target !== scanPdfInput) scanPdfInput.click();
+  });
+  // Handle files dropped onto the scan drop-zone
+  scanDropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    scanDropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      scanPdfInput.files = dt.files;
+    }
+  });
+
   document.getElementById("scanBtn").addEventListener("click", scanPDF);
 }
 

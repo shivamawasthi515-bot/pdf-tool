@@ -2,7 +2,8 @@ const { PDFDocument, degrees } = require("pdf-lib");
 const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
-const pdfPoppler = require("pdf-poppler");
+// pdf-poppler is required lazily inside the functions that use it so that a
+// missing Poppler binary does not prevent the rest of the module from loading.
 
 
 // =========================
@@ -53,6 +54,7 @@ async function compressLevel2(buffer) {
 // =========================
 async function compressLevel3(inputBuffer) {
  const os = require("os");
+ const pdfPoppler = require("pdf-poppler");
 
 const tempDir = path.join(os.tmpdir(), "pdf-tool-temp");
 
@@ -156,6 +158,7 @@ async function organisePDF(buffer, pageOrder) {
 //Scan PDF
 async function scanPDF(inputBuffer) {
 const os = require("os");
+const pdfPoppler = require("pdf-poppler");
 const tempDir = path.join(os.tmpdir(), "pdf-tool-temp");
 
 if (!fs.existsSync(tempDir)) {
