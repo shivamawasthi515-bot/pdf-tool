@@ -231,6 +231,67 @@ if (!fs.existsSync(tempDir)) {
 }
 
 // =========================
+// ORGANISE MULTI-PDF
+// (pages from multiple source files, arbitrary order + rotation)
+// =========================
+async function organiseMultiPDF({ buffers, items }) {
+  // Load each source PDF once
+  const loadedPdfs = await Promise.all(
+    buffers.map(buf =>
+      PDFDocument.load(Buffer.isBuffer(buf) ? buf : Buffer.from(buf))
+    )
+  );
+
+  const newPdf = await PDFDocument.create();
+
+  for (const item of items) {
+    const srcPdf = loadedPdfs[item.bufferIndex];
+    const [page] = await newPdf.copyPages(srcPdf, [item.pageIndex]);
+    if (item.rotate && item.rotate !== 0) {
+      page.setRotation(degrees(item.rotate));
+    }
+    newPdf.addPage(page);
+  }
+
+  return await newPdf.save();
+}
+
+// =========================
+// SPLIT PDF
+// splitPoints: sorted array of 1-indexed page numbers after which to split
+// e.g. splitPoints=[3]   on a 10-page PDF → Part 1: pages 1-3, Part 2: pages 4-10
+// e.g. splitPoints=[3,7] on a 10-page PDF → Parts: 1-3, 4-7, 8-10
+// =========================
+async function splitPDF(buffer, splitPoints) {
+  const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  const srcPdf = await PDFDocument.load(buf);
+  const total = srcPdf.getPageCount();
+
+  // Build 0-indexed range boundaries
+  const sorted = [...splitPoints]
+    .map(p => Math.min(Math.max(Math.floor(p), 1), total - 1))
+    .sort((a, b) => a - b)
+    .filter((v, i, arr) => i === 0 || v !== arr[i - 1]); // deduplicate
+
+  const boundaries = [0, ...sorted, total];
+
+  const results = [];
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const from = boundaries[i];
+    const to   = boundaries[i + 1];
+    if (from >= to) continue; // skip empty parts
+
+    const partPdf = await PDFDocument.create();
+    const indices = Array.from({ length: to - from }, (_, j) => from + j);
+    const pages   = await partPdf.copyPages(srcPdf, indices);
+    pages.forEach(p => partPdf.addPage(p));
+    results.push(await partPdf.save());
+  }
+
+  return results;
+}
+
+// =========================
 // EXPORT (ONLY ONCE)
 // =========================
 module.exports = {
@@ -239,5 +300,7 @@ module.exports = {
   compressLevel2,
   compressLevel3,
   organisePDF,
+  organiseMultiPDF,
+  splitPDF,
   scanPDF
 };
