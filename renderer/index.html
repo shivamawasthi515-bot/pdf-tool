@@ -18,6 +18,7 @@
     --tab-compress: #0ea5e9;
     --tab-organise: #f59e0b;
     --tab-scan: #10b981;
+    --tab-split: #8b5cf6;
     --text: #1e1b4b;
     --muted: #6b7280;
     --border: #e5e7eb;
@@ -77,6 +78,7 @@
   nav.tabs button.active[data-tab="merge"]    { background: var(--tab-merge);    color: #fff; }
   nav.tabs button.active[data-tab="compress"] { background: var(--tab-compress); color: #fff; }
   nav.tabs button.active[data-tab="organise"] { background: var(--tab-organise); color: #fff; }
+  nav.tabs button.active[data-tab="split"]    { background: var(--tab-split);    color: #fff; }
   nav.tabs button.active[data-tab="scan"]     { background: var(--tab-scan);     color: #fff; }
 
   /* ── Tab Panels ── */
@@ -103,6 +105,7 @@
   #panel-merge    h2 .accent { background: var(--tab-merge); }
   #panel-compress h2 .accent { background: var(--tab-compress); }
   #panel-organise h2 .accent { background: var(--tab-organise); }
+  #panel-split    h2 .accent { background: var(--tab-split); }
   #panel-scan     h2 .accent { background: var(--tab-scan); }
 
   /* ── Drop Zone ── */
@@ -143,6 +146,7 @@
   .btn-merge    { background: var(--tab-merge);    color: #fff; }
   .btn-compress { background: var(--tab-compress); color: #fff; }
   .btn-organise { background: var(--tab-organise); color: #fff; }
+  .btn-split    { background: var(--tab-split);    color: #fff; }
   .btn-scan     { background: var(--tab-scan);     color: #fff; }
   .btn-outline  { background: transparent; border: 2px solid var(--border); color: var(--text); }
   .btn-danger   { background: #ef4444; color: #fff; padding: 5px 10px; font-size: 0.8rem; }
@@ -229,6 +233,114 @@
     gap: 6px;
   }
 
+  /* ── Mode Toggle (Organise) ── */
+  .mode-toggle {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+  }
+  .mode-btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    color: var(--muted);
+    transition: background 0.2s, color 0.2s;
+  }
+  .mode-btn.active { background: var(--tab-organise); color: #fff; }
+
+  /* ── Org loaded-files list ── */
+  #orgFilesList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .org-file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .org-file-badge {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Files-mode order list ── */
+  #orgFilesOrder {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 16px 0;
+    padding: 4px;
+    min-height: 60px;
+  }
+  #orgFilesOrder li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 2px solid;
+    cursor: grab;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: box-shadow 0.2s;
+    user-select: none;
+  }
+  #orgFilesOrder li.sortable-ghost  { opacity: 0.4; }
+  #orgFilesOrder li.sortable-chosen { box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+
+  /* ── Per-file color bar on page thumbnails ── */
+  .file-color-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    border-radius: 8px 8px 0 0;
+  }
+
+  /* ── Text input (Split) ── */
+  .text-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    background: #fff;
+    color: var(--text);
+  }
+  .text-input:focus { border-color: var(--tab-split); }
+
+  /* ── Split result parts ── */
+  .split-part {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f5f3ff;
+    border: 1.5px solid #ddd6fe;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    gap: 10px;
+  }
+
   /* ── Responsive ── */
   @media (max-width: 600px) {
     header { padding: 16px 16px 12px; }
@@ -245,7 +357,7 @@
   <span class="logo">📄</span>
   <div>
     <h1>ShiPra SmartPDF Tool</h1>
-    <p>Merge · Compress · Organise · Scan</p>
+    <p>Merge · Compress · Organise · Split · Scan</p>
   </div>
 </header>
 
@@ -253,6 +365,7 @@
   <button class="active" data-tab="merge">🔗 Merge PDFs</button>
   <button data-tab="compress">🗜️ Compress</button>
   <button data-tab="organise">📐 Organise</button>
+  <button data-tab="split">✂️ Split</button>
   <button data-tab="scan">🖨️ Scan</button>
 </nav>
 
@@ -306,18 +419,63 @@
 <!-- ── ORGANISE PANEL ── -->
 <div id="panel-organise" class="panel">
   <div class="card">
-    <h2><span class="accent"></span>Organise PDF Pages</h2>
-    <div class="drop-zone" style="border-color: #fde68a;">
-      <span class="dz-icon">📄</span>
-      <span><strong>Click to browse</strong> or drag &amp; drop a PDF file here</span>
-      <input type="file" id="orgPdf" accept="application/pdf">
+    <h2><span class="accent"></span>Organise PDFs</h2>
+    <div class="drop-zone" id="orgDropZone" style="border-color: #fde68a;">
+      <span class="dz-icon">📂</span>
+      <span><strong>Click to browse</strong> or drag &amp; drop PDF files here (multiple allowed)</span>
+      <input type="file" id="orgPdfs" multiple accept="application/pdf">
     </div>
     <div class="btn-group" style="margin-bottom:14px;">
-      <button id="loadOrgBtn" class="btn btn-organise">📂 Load PDF</button>
+      <button id="addOrgFilesBtn" class="btn btn-organise">➕ Add PDFs</button>
+      <button id="clearOrgBtn" class="btn btn-outline">🗑️ Clear All</button>
       <button id="downloadOrgBtn" class="btn btn-outline">💾 Download Organised PDF</button>
     </div>
-    <p class="drag-hint">🖱️ Drag &amp; drop thumbnails below to reorder pages. Use 🔄 to rotate, ❌ to delete.</p>
+
+    <!-- Loaded files with color badges -->
+    <div id="orgFilesList"></div>
+
+    <!-- Mode toggle (hidden until at least one file loaded) -->
+    <div class="mode-toggle" id="orgModeToggle" style="display:none;">
+      <button class="mode-btn active" data-mode="pages">📄 Pages Mode</button>
+      <button class="mode-btn" data-mode="files">📁 Files Mode</button>
+    </div>
+
+    <p class="drag-hint" id="orgDragHint" style="display:none;">🖱️ Drag &amp; drop to reorder. Use 🔄 to rotate, ❌ to delete.</p>
+
+    <!-- Pages mode: individual thumbnails -->
     <ul id="pageList"></ul>
+
+    <!-- Files mode: file cards -->
+    <ul id="orgFilesOrder" style="display:none;"></ul>
+  </div>
+</div>
+
+<!-- ── SPLIT PANEL ── -->
+<div id="panel-split" class="panel">
+  <div class="card">
+    <h2><span class="accent"></span>Split PDF</h2>
+    <p style="color: var(--muted); font-size:0.9rem; margin-bottom:14px;">Split a PDF into multiple parts by entering the page number(s) to split after.</p>
+    <div class="drop-zone" style="border-color: #ddd6fe;">
+      <span class="dz-icon">✂️</span>
+      <span><strong>Click to browse</strong> or drag &amp; drop a PDF file here</span>
+      <input type="file" id="splitPdfInput" accept="application/pdf">
+    </div>
+    <div id="splitFileInfo" style="display:none; background:#f5f3ff; border:1.5px solid #ddd6fe; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.9rem;"></div>
+    <div style="margin-bottom:16px;">
+      <label style="font-weight:600; font-size:0.9rem; display:block; margin-bottom:6px;">
+        Enter page number(s) to split after (comma-separated):
+      </label>
+      <input id="splitPointsInput" type="text" class="text-input" placeholder="e.g.  3   or   3, 7, 12">
+      <p style="font-size:0.78rem; color:var(--muted); margin-top:6px;">
+        <strong>3</strong> → Part 1 (pages 1–3) + Part 2 (pages 4–end) &nbsp;|&nbsp;
+        <strong>3, 7</strong> → 3 parts (1–3, 4–7, 8–end)
+      </p>
+    </div>
+    <div class="btn-group">
+      <button id="splitEqualBtn" class="btn btn-outline">⚖️ Split in 2 Equal Parts</button>
+      <button id="splitBtn" class="btn btn-split">✂️ Split PDF</button>
+    </div>
+    <div id="splitResults" style="margin-top:16px;"></div>
   </div>
 </div>
 
