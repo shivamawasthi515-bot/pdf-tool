@@ -94,30 +94,30 @@ async function _compressViaImages(inputBuffer, { resolution, jpegQuality, maxWid
 }
 
 // =========================
-// LEVEL 1 – light compression
-// 150 DPI render, JPEG quality 85, no resize.
-// Gives ~30-50 % size reduction with no visible quality loss.
+// LEVEL 1 – very light compression (5–10 % size reduction)
+// 200 DPI render, JPEG quality 92, no resize.
+// Virtually no visible quality change.
 // =========================
 async function compressLevel1(buffer) {
-  return _compressViaImages(buffer, { resolution: 150, jpegQuality: 85, maxWidth: null });
+  return _compressViaImages(buffer, { resolution: 200, jpegQuality: 92, maxWidth: null });
 }
 
 // =========================
-// LEVEL 2 – medium compression
-// 120 DPI render, JPEG quality 72, max-width 1600 px.
-// Gives ~50-65 % size reduction with minor quality loss.
+// LEVEL 2 – moderate compression (20–40 % size reduction)
+// 150 DPI render, JPEG quality 80, no resize.
+// Minor quality reduction, clearly smaller file.
 // =========================
 async function compressLevel2(buffer) {
-  return _compressViaImages(buffer, { resolution: 120, jpegQuality: 72, maxWidth: 1600 });
+  return _compressViaImages(buffer, { resolution: 150, jpegQuality: 80, maxWidth: null });
 }
 
 // =========================
-// LEVEL 3 – maximum compression
-// 96 DPI render, JPEG quality 55, max-width 1400 px.
-// Gives ~65-80 % size reduction; best for file-size-critical use cases.
+// LEVEL 3 – strong compression (40–60 % size reduction)
+// 120 DPI render, JPEG quality 65, max-width 1800 px.
+// Noticeable but acceptable quality reduction for significant space saving.
 // =========================
 async function compressLevel3(inputBuffer) {
-  return _compressViaImages(inputBuffer, { resolution: 96, jpegQuality: 55, maxWidth: 1400 });
+  return _compressViaImages(inputBuffer, { resolution: 120, jpegQuality: 65, maxWidth: 1800 });
 }
 
 
