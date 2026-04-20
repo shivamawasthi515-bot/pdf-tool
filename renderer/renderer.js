@@ -91,6 +91,8 @@ let orgFileOrder = [];
 let orgMode = 'pages';
 let orgPagesSortable = null;
 let orgFilesSortable = null;
+// Cache of rendered page thumbnails: key = "bufferIndex:pageIndex:rotate" → data URL string
+const orgPageCache = new Map();
 
 async function addOrgFiles() {
   const input = document.getElementById("orgPdfs");
@@ -124,6 +126,7 @@ function clearOrgAll() {
   orgFiles = [];
   orgItems = [];
   orgFileOrder = [];
+  orgPageCache.clear();
   if (orgPagesSortable) { orgPagesSortable.destroy(); orgPagesSortable = null; }
   if (orgFilesSortable) { orgFilesSortable.destroy(); orgFilesSortable = null; }
   document.getElementById("pageList").innerHTML = "";
@@ -177,6 +180,18 @@ function removeOrgFile(fileIdx) {
     .filter(idx => idx !== fileIdx)
     .map(idx => idx > fileIdx ? idx - 1 : idx);
 
+  // Rebuild cache: drop entries for removed file, remap bufferIndex for shifted files
+  for (const [key] of orgPageCache) {
+    const bi = parseInt(key.split(":")[0], 10);
+    if (bi === fileIdx) {
+      orgPageCache.delete(key);
+    } else if (bi > fileIdx) {
+      const [, pi, rot] = key.split(":");
+      orgPageCache.set(`${bi - 1}:${pi}:${rot}`, orgPageCache.get(key));
+      orgPageCache.delete(key);
+    }
+  }
+
   renderOrgFilesList();
   const toggle = document.getElementById("orgModeToggle");
   const hint   = document.getElementById("orgDragHint");
@@ -212,12 +227,19 @@ async function renderOrgPages() {
     const entry = orgFiles[item.bufferIndex];
     const c     = FILE_COLORS[entry.colorIndex];
 
-    const page     = await entry.pdfDoc.getPage(item.pageIndex + 1);
-    const viewport = page.getViewport({ scale: 0.3, rotation: item.rotate });
-    const canvas   = document.createElement("canvas");
-    canvas.width   = viewport.width;
-    canvas.height  = viewport.height;
-    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    // Use cached thumbnail if available; otherwise render and cache
+    const cacheKey = `${item.bufferIndex}:${item.pageIndex}:${item.rotate}`;
+    let dataURL = orgPageCache.get(cacheKey);
+    if (!dataURL) {
+      const page     = await entry.pdfDoc.getPage(item.pageIndex + 1);
+      const viewport = page.getViewport({ scale: 0.3, rotation: item.rotate });
+      const canvas   = document.createElement("canvas");
+      canvas.width   = viewport.width;
+      canvas.height  = viewport.height;
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      dataURL = canvas.toDataURL();
+      orgPageCache.set(cacheKey, dataURL);
+    }
 
     const li = document.createElement("li");
     li.dataset.idx = String(i);
@@ -231,7 +253,7 @@ async function renderOrgPages() {
     bar.style.background = c.border;
 
     const img = document.createElement("img");
-    img.src = canvas.toDataURL();
+    img.src = dataURL;
 
     const label = document.createElement("span");
     label.className  = "page-label";
