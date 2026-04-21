@@ -149,9 +149,8 @@ async function organisePDF(buffer, pageOrder) {
 }
 
 //Scan PDF
-// Converts each page to a raster image (scanned look) at 300 DPI.
-// No extra recompression is applied – the JPEG from the renderer is
-// embedded directly so quality is preserved.
+// Converts each page to a lossless PNG raster image at 300 DPI (scanned look).
+// No compression is applied at any stage – pixels are preserved exactly.
 async function scanPDF(inputBuffer) {
 const os = require("os");
 const pdfPoppler = require("pdf-poppler");
@@ -166,9 +165,9 @@ if (!fs.existsSync(tempDir)) {
 
   fs.writeFileSync(inputPath, buffer);
 
-  // Render at 300 DPI for a crisp scanned appearance
+  // Render at 300 DPI as lossless PNG – no JPEG compression at all
   await pdfPoppler.convert(inputPath, {
-    format: "jpeg",
+    format: "png",
     out_dir: tempDir,
     out_prefix: "scan",
     page: null,
@@ -177,7 +176,7 @@ if (!fs.existsSync(tempDir)) {
 
   const images = fs
     .readdirSync(tempDir)
-    .filter(f => f.startsWith("scan") && f.endsWith(".jpg"))
+    .filter(f => f.startsWith("scan") && f.endsWith(".png"))
     .sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
 
   const pdfDoc = await PDFDocument.create();
@@ -185,9 +184,9 @@ if (!fs.existsSync(tempDir)) {
   for (let img of images) {
     const imgPath = path.join(tempDir, img);
 
-    // Read the JPEG directly – no extra compression step
-    const jpegBytes = fs.readFileSync(imgPath);
-    const embed = await pdfDoc.embedJpg(jpegBytes);
+    // Embed PNG directly – lossless, no recompression
+    const pngBytes = fs.readFileSync(imgPath);
+    const embed = await pdfDoc.embedPng(pngBytes);
 
     // Size the page to exactly match the rendered image so nothing is stretched
     const page = pdfDoc.addPage([embed.width, embed.height]);
