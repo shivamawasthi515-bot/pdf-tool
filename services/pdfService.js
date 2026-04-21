@@ -2,7 +2,8 @@ const { PDFDocument, degrees } = require("pdf-lib");
 const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
-const pdfPoppler = require("pdf-poppler");
+// pdf-poppler is required lazily inside the functions that use it so that a
+// missing Poppler binary does not prevent the rest of the module from loading.
 
 
 // =========================
@@ -22,63 +23,36 @@ async function mergePDFs(files) {
 }
 
 // =========================
-// LEVEL 1
+// SHARED IMAGE-BASED COMPRESSION HELPER
+// Renders every page via pdf-poppler, recompresses with sharp, rebuilds PDF.
+// options: { resolution, jpegQuality, maxWidth }
+//   resolution  – DPI used by pdf-poppler (higher = better quality / larger file)
+//   jpegQuality – 0-100 JPEG quality passed to sharp
+//   maxWidth    – resize page image to this width (null = keep original size)
 // =========================
-async function compressLevel1(buffer) {
-  const pdf = await PDFDocument.load(buffer);
+async function _compressViaImages(inputBuffer, { resolution, jpegQuality, maxWidth }) {
+  const os = require("os");
+  const pdfPoppler = require("pdf-poppler");
 
-  return await pdf.save({
-    useObjectStreams: true
-  });
-}
+  const tempDir = path.join(os.tmpdir(), "pdf-tool-temp");
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
 
-// =========================
-// LEVEL 2
-// =========================
-async function compressLevel2(buffer) {
-  const pdf = await PDFDocument.load(buffer);
-
-  pdf.setTitle("");
-  pdf.setAuthor("");
-  pdf.setSubject("");
-
-  return await pdf.save({
-    useObjectStreams: true,
-    addDefaultPage: false
-  });
-}
-
-// =========================
-// LEVEL 3
-// =========================
-async function compressLevel3(inputBuffer) {
- const os = require("os");
-
-const tempDir = path.join(os.tmpdir(), "pdf-tool-temp");
-
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
-}
-
-
-  const buffer = Buffer.isBuffer(inputBuffer)
-    ? inputBuffer
-    : Buffer.from(inputBuffer);
-
+  const buffer = Buffer.isBuffer(inputBuffer) ? inputBuffer : Buffer.from(inputBuffer);
   const inputPath = path.join(tempDir, "input.pdf");
-
-  // STEP 1: write file
   fs.writeFileSync(inputPath, buffer);
 
-  // STEP 2: convert PDF → images
+  // STEP 1: render PDF pages to JPEG images
   await pdfPoppler.convert(inputPath, {
     format: "jpeg",
     out_dir: tempDir,
     out_prefix: "page",
-    page: null
+    page: null,
+    resolution
   });
 
-  // STEP 3: safely get images in correct order
+  // STEP 2: collect images in page order
   const images = fs
     .readdirSync(tempDir)
     .filter(f => f.startsWith("page") && f.endsWith(".jpg"))
@@ -88,41 +62,62 @@ if (!fs.existsSync(tempDir)) {
       return aNum - bNum;
     });
 
-  // STEP 4: rebuild PDF
+  // STEP 3: recompress each image and rebuild PDF
   const pdfDoc = await PDFDocument.create();
 
-  for (let img of images) {
+  for (const img of images) {
     const imgPath = path.join(tempDir, img);
 
-    const compressed = await sharp(imgPath)
-      .resize({ width: 1200 })
-      .jpeg({ quality: 40 })
-      .toBuffer();
+    let pipeline = sharp(imgPath);
+    if (maxWidth) {
+      pipeline = pipeline.resize({ width: maxWidth, withoutEnlargement: true });
+    }
+    const compressed = await pipeline.jpeg({ quality: jpegQuality }).toBuffer();
 
     const embed = await pdfDoc.embedJpg(compressed);
-
-    const page = pdfDoc.addPage();
-    const { width, height } = page.getSize();
-
-    page.drawImage(embed, {
-      x: 0,
-      y: 0,
-      width,
-      height
-    });
+    // Size page exactly to the embedded image so aspect ratio is preserved
+    const page = pdfDoc.addPage([embed.width, embed.height]);
+    page.drawImage(embed, { x: 0, y: 0, width: embed.width, height: embed.height });
   }
 
-  // STEP 5: generate final PDF
+  // STEP 4: save output
   const output = await pdfDoc.save();
 
-  // STEP 6: SAFE cleanup (ONLY images, NOT input.pdf immediately)
+  // STEP 5: clean up temp images
   fs.readdirSync(tempDir).forEach(file => {
     if (file.startsWith("page") && file.endsWith(".jpg")) {
-      fs.unlinkSync(path.join(tempDir, file));
+      try { fs.unlinkSync(path.join(tempDir, file)); } catch (_) {}
     }
   });
 
   return output;
+}
+
+// =========================
+// LEVEL 1 – very light compression (5–10 % size reduction)
+// 200 DPI render, JPEG quality 92, no resize.
+// Virtually no visible quality change.
+// =========================
+async function compressLevel1(buffer) {
+  return _compressViaImages(buffer, { resolution: 200, jpegQuality: 92, maxWidth: null });
+}
+
+// =========================
+// LEVEL 2 – moderate compression (20–40 % size reduction)
+// 150 DPI render, JPEG quality 80, no resize.
+// Minor quality reduction, clearly smaller file.
+// =========================
+async function compressLevel2(buffer) {
+  return _compressViaImages(buffer, { resolution: 150, jpegQuality: 80, maxWidth: null });
+}
+
+// =========================
+// LEVEL 3 – strong compression (40–60 % size reduction)
+// 120 DPI render, JPEG quality 65, max-width 1800 px.
+// Noticeable but acceptable quality reduction for significant space saving.
+// =========================
+async function compressLevel3(inputBuffer) {
+  return _compressViaImages(inputBuffer, { resolution: 120, jpegQuality: 65, maxWidth: 1800 });
 }
 
 
@@ -154,8 +149,11 @@ async function organisePDF(buffer, pageOrder) {
 }
 
 //Scan PDF
+// Converts each page to a lossless PNG raster image at 300 DPI (scanned look).
+// No compression is applied at any stage – pixels are preserved exactly.
 async function scanPDF(inputBuffer) {
 const os = require("os");
+const pdfPoppler = require("pdf-poppler");
 const tempDir = path.join(os.tmpdir(), "pdf-tool-temp");
 
 if (!fs.existsSync(tempDir)) {
@@ -167,16 +165,18 @@ if (!fs.existsSync(tempDir)) {
 
   fs.writeFileSync(inputPath, buffer);
 
+  // Render at 300 DPI as lossless PNG – no JPEG compression at all
   await pdfPoppler.convert(inputPath, {
-    format: "jpeg",
+    format: "png",
     out_dir: tempDir,
     out_prefix: "scan",
-    page: null
+    page: null,
+    resolution: 300
   });
 
   const images = fs
     .readdirSync(tempDir)
-    .filter(f => f.startsWith("scan") && f.endsWith(".jpg"))
+    .filter(f => f.startsWith("scan") && f.endsWith(".png"))
     .sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
 
   const pdfDoc = await PDFDocument.create();
@@ -184,20 +184,18 @@ if (!fs.existsSync(tempDir)) {
   for (let img of images) {
     const imgPath = path.join(tempDir, img);
 
-    const compressed = await sharp(imgPath)
-      .jpeg({ quality: 80 })
-      .toBuffer();
+    // Embed PNG directly – lossless, no recompression
+    const pngBytes = fs.readFileSync(imgPath);
+    const embed = await pdfDoc.embedPng(pngBytes);
 
-    const embed = await pdfDoc.embedJpg(compressed);
-
-    const page = pdfDoc.addPage();
-    const { width, height } = page.getSize();
+    // Size the page to exactly match the rendered image so nothing is stretched
+    const page = pdfDoc.addPage([embed.width, embed.height]);
 
     page.drawImage(embed, {
       x: 0,
       y: 0,
-      width,
-      height
+      width: embed.width,
+      height: embed.height
     });
   }
 
@@ -231,6 +229,67 @@ if (!fs.existsSync(tempDir)) {
 }
 
 // =========================
+// ORGANISE MULTI-PDF
+// (pages from multiple source files, arbitrary order + rotation)
+// =========================
+async function organiseMultiPDF({ buffers, items }) {
+  // Load each source PDF once
+  const loadedPdfs = await Promise.all(
+    buffers.map(buf =>
+      PDFDocument.load(Buffer.isBuffer(buf) ? buf : Buffer.from(buf))
+    )
+  );
+
+  const newPdf = await PDFDocument.create();
+
+  for (const item of items) {
+    const srcPdf = loadedPdfs[item.bufferIndex];
+    const [page] = await newPdf.copyPages(srcPdf, [item.pageIndex]);
+    if (item.rotate && item.rotate !== 0) {
+      page.setRotation(degrees(item.rotate));
+    }
+    newPdf.addPage(page);
+  }
+
+  return await newPdf.save();
+}
+
+// =========================
+// SPLIT PDF
+// splitPoints: sorted array of 1-indexed page numbers after which to split
+// e.g. splitPoints=[3]   on a 10-page PDF → Part 1: pages 1-3, Part 2: pages 4-10
+// e.g. splitPoints=[3,7] on a 10-page PDF → Parts: 1-3, 4-7, 8-10
+// =========================
+async function splitPDF(buffer, splitPoints) {
+  const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  const srcPdf = await PDFDocument.load(buf);
+  const total = srcPdf.getPageCount();
+
+  // Build 0-indexed range boundaries
+  const sorted = [...splitPoints]
+    .map(p => Math.min(Math.max(Math.floor(p), 1), total - 1))
+    .sort((a, b) => a - b)
+    .filter((v, i, arr) => i === 0 || v !== arr[i - 1]); // deduplicate
+
+  const boundaries = [0, ...sorted, total];
+
+  const results = [];
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const from = boundaries[i];
+    const to   = boundaries[i + 1];
+    if (from >= to) continue; // skip empty parts
+
+    const partPdf = await PDFDocument.create();
+    const indices = Array.from({ length: to - from }, (_, j) => from + j);
+    const pages   = await partPdf.copyPages(srcPdf, indices);
+    pages.forEach(p => partPdf.addPage(p));
+    results.push(await partPdf.save());
+  }
+
+  return results;
+}
+
+// =========================
 // EXPORT (ONLY ONCE)
 // =========================
 module.exports = {
@@ -239,5 +298,7 @@ module.exports = {
   compressLevel2,
   compressLevel3,
   organisePDF,
+  organiseMultiPDF,
+  splitPDF,
   scanPDF
 };

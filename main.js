@@ -106,6 +106,30 @@ ipcMain.handle("scan-pdf", async (event, buffer) => {
   return await pdfService.scanPDF(buffer);
 });
 
+// =========================
+// 🔥 ORGANISE MULTI-PDF HANDLER
+// =========================
+ipcMain.handle("organise-multi-pdf", async (event, { buffers, items }) => {
+  try {
+    return await pdfService.organiseMultiPDF({ buffers, items });
+  } catch (err) {
+    console.error("❌ Organise Multi PDF Error:", err);
+    throw err;
+  }
+});
+
+// =========================
+// 🔥 SPLIT PDF HANDLER
+// =========================
+ipcMain.handle("split-pdf", async (event, { buffer, splitPoints }) => {
+  try {
+    return await pdfService.splitPDF(buffer, splitPoints);
+  } catch (err) {
+    console.error("❌ Split PDF Error:", err);
+    throw err;
+  }
+});
+
 // App Start
 app.whenReady().then(createWindow);
 

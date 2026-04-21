@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld("pdfAPI", {
   organisePDF: (data) =>
     ipcRenderer.invoke("organise-pdf", data),
 
-    scanPDF: (buffer) =>
-  ipcRenderer.invoke("scan-pdf", buffer)
+  organiseMultiPDF: (data) =>
+    ipcRenderer.invoke("organise-multi-pdf", data),
+
+  splitPDF: (buffer, splitPoints) =>
+    ipcRenderer.invoke("split-pdf", { buffer, splitPoints }),
+
+  scanPDF: (buffer) =>
+    ipcRenderer.invoke("scan-pdf", buffer)
 });
