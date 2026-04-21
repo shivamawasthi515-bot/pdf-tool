@@ -149,6 +149,9 @@ async function organisePDF(buffer, pageOrder) {
 }
 
 //Scan PDF
+// Converts each page to a raster image (scanned look) at 300 DPI.
+// No extra recompression is applied – the JPEG from the renderer is
+// embedded directly so quality is preserved.
 async function scanPDF(inputBuffer) {
 const os = require("os");
 const pdfPoppler = require("pdf-poppler");
@@ -163,11 +166,13 @@ if (!fs.existsSync(tempDir)) {
 
   fs.writeFileSync(inputPath, buffer);
 
+  // Render at 300 DPI for a crisp scanned appearance
   await pdfPoppler.convert(inputPath, {
     format: "jpeg",
     out_dir: tempDir,
     out_prefix: "scan",
-    page: null
+    page: null,
+    resolution: 300
   });
 
   const images = fs
@@ -180,20 +185,18 @@ if (!fs.existsSync(tempDir)) {
   for (let img of images) {
     const imgPath = path.join(tempDir, img);
 
-    const compressed = await sharp(imgPath)
-      .jpeg({ quality: 80 })
-      .toBuffer();
+    // Read the JPEG directly – no extra compression step
+    const jpegBytes = fs.readFileSync(imgPath);
+    const embed = await pdfDoc.embedJpg(jpegBytes);
 
-    const embed = await pdfDoc.embedJpg(compressed);
-
-    const page = pdfDoc.addPage();
-    const { width, height } = page.getSize();
+    // Size the page to exactly match the rendered image so nothing is stretched
+    const page = pdfDoc.addPage([embed.width, embed.height]);
 
     page.drawImage(embed, {
       x: 0,
       y: 0,
-      width,
-      height
+      width: embed.width,
+      height: embed.height
     });
   }
 
